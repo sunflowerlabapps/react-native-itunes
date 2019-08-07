@@ -627,6 +627,12 @@ RCT_EXPORT_METHOD(playTracks:(NSArray *)tracks successCallback:(RCTResponseSende
     successCallback(@[[NSNull null]]);
 }
 
+RCT_EXPORT_METHOD(setVolume:(CGFloat)volume) {
+    if (self.player) {
+        [self.player setVolume:volume];
+    }
+}
+
 RCT_EXPORT_METHOD(play) {
     NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
     [self.player play];
