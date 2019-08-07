@@ -54,6 +54,10 @@ module.exports = {
     });
   },
 
+  setVolume: function(volume) {
+    RNiTunes.setVolume(volume);
+  },
+  
   pause: function() {
     RNiTunes.pause();
   },
