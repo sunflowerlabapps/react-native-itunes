@@ -562,12 +562,18 @@ RCT_EXPORT_METHOD(playTrack:(NSDictionary *)trackItem callback:(RCTResponseSende
             MPMediaItem *item = [songQuery.items objectAtIndex:0];
             
             NSError* error = nil;
-            self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:item.assetURL error:&error];
+            
+            if(!self.player) {
+                self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:item.assetURL error:&error];
+            }
+            
             self.player.numberOfLoops = -1;
-            if(!self.player)
-            {
+            
+            if(!self.player) {
                 NSLog(@"Error creating player: %@", error);
             }
+            
+            
             [self.player play];
             
             NSLog(@"Playing audio track");
@@ -628,6 +634,7 @@ RCT_EXPORT_METHOD(playTracks:(NSArray *)tracks successCallback:(RCTResponseSende
 }
 
 RCT_EXPORT_METHOD(setVolume:(CGFloat)volume) {
+    NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
     if (self.player) {
         [self.player setVolume:volume];
     }
@@ -635,14 +642,17 @@ RCT_EXPORT_METHOD(setVolume:(CGFloat)volume) {
 
 RCT_EXPORT_METHOD(play) {
     NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
+    if(self.player == nil) {
+        NSLog(@"Player is not initialised");
+    }
     [self.player play];
-    [[MPMusicPlayerController applicationMusicPlayer] play];
+//    [[MPMusicPlayerController applicationMusicPlayer] play];
 }
 
 RCT_EXPORT_METHOD(pause) {
     NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
     [self.player pause];
-    [[MPMusicPlayerController applicationMusicPlayer] pause];
+//    [[MPMusicPlayerController applicationMusicPlayer] pause];
 }
 
 RCT_EXPORT_METHOD(next) {
