@@ -11,9 +11,10 @@
 #import <React/RCTConvert.h>
 #import <AVFoundation/AVFoundation.h>
 
-@interface RNiTunes()
+@interface RNiTunes()<AVAudioPlayerDelegate>
 @property (nonatomic, strong) AVAudioPlayer* player;
-
+@property (nonatomic, strong) MPMusicPlayerController *musicPlayer;
+@property (nonatomic, strong) RCTResponseSenderBlock callback;
 @end
 
 @implementation RNiTunes
@@ -539,6 +540,7 @@ RCT_EXPORT_METHOD(getPlaylists:(NSDictionary *)params successCallback:(RCTRespon
 
 RCT_EXPORT_METHOD(playTrack:(NSDictionary *)trackItem callback:(RCTResponseSenderBlock)callback) {
     NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
+    self.callback = callback;
     
     // NSLog(@"trackItem %@", trackItem);
     
@@ -549,8 +551,6 @@ RCT_EXPORT_METHOD(playTrack:(NSDictionary *)trackItem callback:(RCTResponseSende
     if (searchTitle != nil) {
         
         MPMediaQuery *songQuery = [[MPMediaQuery alloc] init];
-        
-        
         [songQuery addFilterPredicate:[MPMediaPropertyPredicate predicateWithValue:searchTitle forProperty: MPMediaItemPropertyTitle comparisonType:MPMediaPredicateComparisonContains]];
         [songQuery addFilterPredicate:[MPMediaPropertyPredicate predicateWithValue:searchAlbumTitle forProperty:MPMediaItemPropertyAlbumTitle comparisonType:MPMediaPredicateComparisonContains]];
         
@@ -565,6 +565,7 @@ RCT_EXPORT_METHOD(playTrack:(NSDictionary *)trackItem callback:(RCTResponseSende
             
             if(!self.player) {
                 self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:item.assetURL error:&error];
+                self.player.delegate = self;
             }
             
             self.player.numberOfLoops = -1;
@@ -600,7 +601,6 @@ RCT_EXPORT_METHOD(playTracks:(NSArray *)tracks successCallback:(RCTResponseSende
         
         MPMediaQuery *songsQuery = [MPMediaQuery songsQuery];
         
-        
         if ([query objectForKey:@"title"] != nil) {
             NSString *searchTitle = [query objectForKey:@"title"];
             [songsQuery addFilterPredicate:[MPMediaPropertyPredicate predicateWithValue:searchTitle forProperty:MPMediaItemPropertyTitle comparisonType:MPMediaPredicateComparisonContains]];
@@ -611,9 +611,7 @@ RCT_EXPORT_METHOD(playTracks:(NSArray *)tracks successCallback:(RCTResponseSende
         }
         
         for (MPMediaItem *song in songsQuery.items) {
-            
             [playlist addObject: song];
-            
         }
     }
     
@@ -622,13 +620,19 @@ RCT_EXPORT_METHOD(playTracks:(NSArray *)tracks successCallback:(RCTResponseSende
         return;
     }
     
-    MPMusicPlayerController *musicPlayer = [MPMusicPlayerController applicationMusicPlayer];
+    if(self.musicPlayer == nil) {
+        self.musicPlayer = [MPMusicPlayerController applicationMusicPlayer];
+    }
+    
     MPMediaItemCollection *currentQueue = [[MPMediaItemCollection alloc] initWithItems:playlist];
     MPMediaItem *nowPlaying = [[currentQueue items] objectAtIndex:0];
-    [musicPlayer setQueueWithItemCollection:currentQueue];
-    [musicPlayer setNowPlayingItem:nowPlaying];
+    [self.musicPlayer setQueueWithItemCollection:currentQueue];
+    [self.musicPlayer setNowPlayingItem:nowPlaying];
+    [self.musicPlayer prepareToPlay];
+    self.musicPlayer.repeatMode = MPMusicRepeatModeNone;
+    self.musicPlayer.shuffleMode = MPMusicShuffleModeOff;
     
-    [musicPlayer play];
+    [self.musicPlayer play];
     
     successCallback(@[[NSNull null]]);
 }
@@ -638,6 +642,23 @@ RCT_EXPORT_METHOD(setVolume:(CGFloat)volume) {
     if (self.player) {
         [self.player setVolume:volume];
     }
+    
+    if(self.musicPlayer != nil) {
+        
+        MPVolumeView* volumeView = [[MPVolumeView alloc] init];
+        
+        //find the volumeSlider
+        UISlider* volumeViewSlider = nil;
+        for (UIView *view in [volumeView subviews]){
+            if ([view.class.description isEqualToString:@"MPVolumeSlider"]){
+                volumeViewSlider = (UISlider*)view;
+                break;
+            }
+        }
+        
+        [volumeViewSlider setValue:volume animated:NO];
+        [volumeViewSlider sendActionsForControlEvents:UIControlEventTouchUpInside];
+    }
 }
 
 RCT_EXPORT_METHOD(play) {
@@ -645,14 +666,25 @@ RCT_EXPORT_METHOD(play) {
     if(self.player == nil) {
         NSLog(@"Player is not initialised");
     }
-    [self.player play];
-//    [[MPMusicPlayerController applicationMusicPlayer] play];
+    else {
+        [self.player play];
+    }
+    
+    if(self.musicPlayer != nil) {
+        [self.musicPlayer play];
+    }
 }
 
 RCT_EXPORT_METHOD(pause) {
     NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
-    [self.player pause];
-//    [[MPMusicPlayerController applicationMusicPlayer] pause];
+    
+    if(self.player != nil) {
+        [self.player pause];
+    }
+    
+    if(self.musicPlayer != nil) {
+        [self.musicPlayer pause];
+    }
 }
 
 RCT_EXPORT_METHOD(next) {
@@ -698,5 +730,16 @@ RCT_EXPORT_METHOD(seekTo:(double)seconds) {
     return [data base64EncodedStringWithOptions:NSDataBase64EncodingEndLineWithLineFeed];
 }
 
+- (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag {
+    NSLog(@"Completed playing");
+    // self.callback(@[@{@"customButton": player.url}]);
+}
+
+- (void)musicplayerPlayBackStateChanged:(NSNotification *)notify {
+    NSLog(@"PlayBack: %@", notify);
+}
+
 @end
+
+
 
